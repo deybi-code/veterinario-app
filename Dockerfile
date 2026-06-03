@@ -1,28 +1,26 @@
-# Usamos una imagen base que soporte versiones recientes de PHP
 FROM php:8.4-apache
 
-# Instalamos dependencias necesarias para Laravel
-RUN apt-get update && apt-get install -y \
-    libpng-dev \
-    libjpeg-dev \
-    libfreetype6-dev \
-    libzip-dev \
-    zip \
-    unzip \
-    git \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) gd pdo pdo_mysql zip
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y libpng-dev libzip-dev zip unzip git \
+    && docker-php-ext-install pdo_mysql gd zip
 
-# Configuramos el servidor Apache
+# Habilitar mod_rewrite de Apache para Laravel
 RUN a2enmod rewrite
+
+# Instalar Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copiamos el código
-COPY . /var/www/html
+# Configurar directorio de trabajo
 WORKDIR /var/www/html
 
-# Ajustamos permisos
+# Copiar archivos del proyecto
+COPY . .
+
+# Instalar dependencias de PHP y ajustar permisos
+RUN composer install --no-dev --optimize-autoloader
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Puerto
+# Configurar Apache para que apunte a la carpeta 'public'
+RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
+
 EXPOSE 80
